@@ -3,7 +3,7 @@ import cv2
 import os
 from matplotlib import pyplot as plt
 from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D
-from keras.models import Model
+from keras.models import Model, load_model
 from keras import backend as K
 from keras.callbacks import TensorBoard
 
@@ -14,6 +14,7 @@ img_h = 252 #121 #65
 img_w = 252 #161 #49
 rs_dir = '/home/ronnypetson/Downloads/CVPR_Dataset/house_rot1_B0/rolling_shutter/'
 gs_dir = '/home/ronnypetson/Downloads/CVPR_Dataset/house_rot1_B0/gt_end/'
+model_fn = 'rs2gs_252x252.h5'
 
 def load_data(rs=rs_dir, gs=gs_dir):
 	rs_files = os.listdir(rs)
@@ -77,8 +78,13 @@ x = Conv2D(16, (3, 3), activation='relu')(x)
 x = UpSampling2D((2, 2))(x)
 decoded = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
 
-autoencoder = Model(input_seq, decoded)
-autoencoder.compile(optimizer='adadelta', loss='binary_crossentropy')
+# Load or create model
+autoencoder = None
+if os.path.isfile(model_fn):
+	autoencoder = load_model(model_fn)
+else:
+	autoencoder = Model(input_seq, decoded)
+	autoencoder.compile(optimizer='adam', loss='binary_crossentropy') # adadelta
 
 x_train, y_train = load_data()
 
@@ -108,4 +114,6 @@ for i in range(n):
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 plt.show()
+
+autoencoder.save(model_fn)
 
