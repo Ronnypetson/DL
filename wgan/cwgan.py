@@ -25,7 +25,7 @@ def get_prev(batch,m):
 
 def process_images(imgs):
     images = imgs.reshape([-1, 28, 28, 1])
-    images = [cv2.resize(img,(img_dim,img_dim)).reshape((img_dim,img_dim,1)) for img in images]
+    images = [cv2.resize(img,(img_dim,img_dim),interpolation=cv2.INTER_CUBIC).reshape((img_dim,img_dim,1)) for img in images]
     return np.array(images)
 
 def leaky_relu(x):
@@ -90,9 +90,10 @@ with tf.name_scope('optimizer'):
     d_train = optimizer.minimize(d_loss, var_list=d_vars)
 
 saver = tf.train.Saver()
-if os.path.isfile('./cwgan'):
-    saver.restore(session,'./cwgan')
+if os.path.isfile('./cwgan.ckpt.meta'):
+    saver.restore(session,'./cwgan.ckpt') # session
 else:
+    print('model not found')
     tf.global_variables_initializer().run()
 
 mnist = input_data.read_data_sets('MNIST_data')
@@ -123,5 +124,5 @@ for i in range(5001):
         axarr[2].imshow(generated[:,:,1])
         plt.draw()
         plt.pause(0.01)
-        saver.save(session,'./cwgan')
+        saver.save(session,'./cwgan.ckpt')
 
