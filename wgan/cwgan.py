@@ -8,7 +8,8 @@ import os
 from tensorflow.contrib import layers
 from tensorflow.examples.tutorials.mnist import input_data
 
-img_dim = 8
+img_dim = 16
+model_fn = './cwgan_16'
 
 session = tf.InteractiveSession()
 
@@ -25,7 +26,7 @@ def get_prev(batch,m):
 
 def process_images(imgs):
     images = imgs.reshape([-1, 28, 28, 1])
-    images = [cv2.resize(img,(img_dim,img_dim),interpolation=cv2.INTER_CUBIC).reshape((img_dim,img_dim,1)) for img in images]
+    images = [cv2.resize(img,(img_dim,img_dim),interpolation=cv2.INTER_AREA).reshape((img_dim,img_dim,1)) for img in images]
     return np.array(images)
 
 def leaky_relu(x):
@@ -39,7 +40,7 @@ def generator(z):
 
         z = layers.conv2d_transpose(z, num_outputs=128, kernel_size=5, stride=1,padding='valid') # stride=2
         z = layers.conv2d_transpose(z, num_outputs=64, kernel_size=5, stride=1) # stride=2
-        z = layers.conv2d_transpose(z, num_outputs=2, kernel_size=5, stride=1,
+        z = layers.conv2d_transpose(z, num_outputs=1, kernel_size=5, stride=1,
                                     activation_fn=tf.nn.sigmoid)
         return z[:, 2:-2, 2:-2, :]
 
@@ -58,19 +59,20 @@ def discriminator(x, reuse):
 
 
 with tf.name_scope('placeholders'):
-    x_true = tf.placeholder(tf.float32, [None, img_dim, img_dim, 2])
+    x_true = tf.placeholder(tf.float32, [None, img_dim, img_dim, 1])
+    x_prev = tf.placeholder(tf.float32, [None, img_dim, img_dim, 1])
     z = tf.placeholder(tf.float32, [None, img_dim, img_dim, 1]) # x_prev + noise [None, 128]
 
 
 x_generated = generator(z)
 
-d_true = discriminator(x_true, reuse=False)
-d_generated = discriminator(x_generated, reuse=True)
+d_true = discriminator(tf.concat([x_true,x_prev],3), reuse=False)
+d_generated = discriminator(tf.concat([x_generated,x_prev],3), reuse=True)
 
 with tf.name_scope('regularizer'):
     epsilon = tf.random_uniform([50, 1, 1, 1], 0.0, 1.0)
     x_hat = epsilon * x_true + (1 - epsilon) * x_generated
-    d_hat = discriminator(x_hat, reuse=True)
+    d_hat = discriminator(tf.concat([x_hat,x_prev],3), reuse=True)
 
     gradients = tf.gradients(d_hat, x_hat)[0]
     ddx = tf.sqrt(tf.reduce_sum(gradients ** 2, axis=[1, 2]))
@@ -90,8 +92,8 @@ with tf.name_scope('optimizer'):
     d_train = optimizer.minimize(d_loss, var_list=d_vars)
 
 saver = tf.train.Saver()
-if os.path.isfile('./cwgan.ckpt.meta'):
-    saver.restore(session,'./cwgan.ckpt') # session
+if os.path.isfile(model_fn+'.meta'):
+    saver.restore(session,model_fn) # session
 else:
     print('model not found')
     tf.global_variables_initializer().run()
@@ -104,12 +106,12 @@ for i in range(5001):
     prev_batch = get_prev(batch,mnist)
     images = process_images(batch[0])
     prev_images = process_images(prev_batch)
-    images = np.concatenate((prev_images,images),axis=3)
-    z_train = np.random.randn(50, img_dim, img_dim, 1)*0.02 + prev_images
+    #images = np.concatenate((prev_images,images),axis=3)
+    z_train = np.random.randn(50, img_dim, img_dim, 1)*0.06 + prev_images
 
-    session.run(g_train, feed_dict={z: z_train})
+    session.run(g_train, feed_dict={z: z_train,x_prev: prev_images})
     for j in range(5):
-        session.run(d_train, feed_dict={x_true: images, z: z_train})
+        session.run(d_train, feed_dict={x_true: images, x_prev: prev_images, z: z_train})
 
     if i % 100 == 0:
         print('iter={}/20000'.format(i))
@@ -118,11 +120,12 @@ for i in range(5001):
         #print(generated.shape)
         #plt.clf()
         plt.close()
-        f, axarr = plt.subplots(1,3)
-        axarr[0].imshow(z_validate.squeeze())
-        axarr[1].imshow(generated[:,:,0])
-        axarr[2].imshow(generated[:,:,1])
+        f, axarr = plt.subplots(2,2)
+        axarr[0,0].imshow(prev_images[0].squeeze())
+        axarr[0,1].imshow(z_validate.squeeze())
+        axarr[1,0].imshow(generated)
+        axarr[1,1].imshow(images[0].squeeze())
         plt.draw()
         plt.pause(0.01)
-        saver.save(session,'./cwgan.ckpt')
+        saver.save(session,model_fn)
 

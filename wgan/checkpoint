@@ -1,2 +1,2 @@
-model_checkpoint_path: "cwgan.ckpt"
-all_model_checkpoint_paths: "cwgan.ckpt"
+model_checkpoint_path: "cwgan_16"
+all_model_checkpoint_paths: "cwgan_16"
