@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import cv2
+import os
 from tensorflow.contrib import layers
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -14,7 +15,7 @@ session = tf.InteractiveSession()
 def get_prev(batch,m):
     prev = []
     for i in range(len(batch[0])):
-        y = (batch[1][i]+1)%10
+        y = (batch[1][i]+9)%10
         while True:
             b = m.train.next_batch(1)
             if b[1][0] == y:
@@ -88,31 +89,39 @@ with tf.name_scope('optimizer'):
     d_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='discriminator')
     d_train = optimizer.minimize(d_loss, var_list=d_vars)
 
-tf.global_variables_initializer().run()
+saver = tf.train.Saver()
+if os.path.isfile('./cwgan'):
+    saver.restore(session,'./cwgan')
+else:
+    tf.global_variables_initializer().run()
 
 mnist = input_data.read_data_sets('MNIST_data')
-
-for i in range(201):
+plt.ion()
+plt.show()
+for i in range(5001):
     batch = mnist.train.next_batch(50)
     prev_batch = get_prev(batch,mnist)
     images = process_images(batch[0])
     prev_images = process_images(prev_batch)
-    images = np.concatenate((images,prev_images),axis=3)
-    z_train = np.random.randn(50, img_dim, img_dim, 1)*0.1 + prev_images
+    images = np.concatenate((prev_images,images),axis=3)
+    z_train = np.random.randn(50, img_dim, img_dim, 1)*0.02 + prev_images
 
     session.run(g_train, feed_dict={z: z_train})
     for j in range(5):
         session.run(d_train, feed_dict={x_true: images, z: z_train})
 
-    if i % 200 == 0:
+    if i % 100 == 0:
         print('iter={}/20000'.format(i))
         z_validate = z_train[0].reshape((-1,img_dim,img_dim,1))
         generated = x_generated.eval(feed_dict={z: z_validate}).squeeze()
         #print(generated.shape)
-
-        plt.figure('results')
-        plt.imshow(z_validate.squeeze(), clim=[0, 1], cmap='bone')
-        plt.show()
-        plt.imshow(generated[:,:,0], clim=[0, 1], cmap='bone')
-        plt.show()
+        #plt.clf()
+        plt.close()
+        f, axarr = plt.subplots(1,3)
+        axarr[0].imshow(z_validate.squeeze())
+        axarr[1].imshow(generated[:,:,0])
+        axarr[2].imshow(generated[:,:,1])
+        plt.draw()
+        plt.pause(0.01)
+        saver.save(session,'./cwgan')
 
