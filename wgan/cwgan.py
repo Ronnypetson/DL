@@ -101,7 +101,7 @@ else:
 mnist = input_data.read_data_sets('MNIST_data')
 plt.ion()
 plt.show()
-for i in range(5001):
+for i in range(10001):
     batch = mnist.train.next_batch(50)
     prev_batch = get_prev(batch,mnist)
     images = process_images(batch[0])
