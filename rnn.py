@@ -53,7 +53,7 @@ train = tf.train.AdamOptimizer(0.001).minimize(loss)
 
 with tf.Session() as sess:
 	sess.run(tf.global_variables_initializer())
-	for i in range(1000):
+	for i in range(2000):
 		batch_x, batch_y = gen_batch()
 		batch_x = np.array(batch_x)
 		batch_y = np.array(batch_y).reshape((-1,1))

@@ -33,18 +33,24 @@ def load_data(rs=rs_dir, gs=gs_dir):
 
 	rs_imgs = []
 	gs_imgs = []
+	test_rs = []
 	i = 0
 	for rsf, gsf in zip(rs_files, gs_files):
 		rs_img = cv2.imread(rs_dir+rsf,0)
 		rs_img = cv2.resize(rs_img,(img_h,img_w))
 		rs_img = preprocess_input(rs_img)
-		rs_imgs.append(rs_img)
-
+		
 		gs_img = cv2.imread(gs_dir+gsf,0)
 		gs_img = cv2.resize(gs_img,(440,440))	# 440,440
 		gs_img = preprocess_input(gs_img)/255.0
-		gs_imgs.append(np.reshape(gs_img,(440,440,1)))
-		if i == 300: break
+		
+		if i < 300:
+			rs_imgs.append(rs_img)
+			gs_imgs.append(np.reshape(gs_img,(440,440,1)))
+		else:
+			test_rs.append(rs_img)
+		if i == 312:
+			break
 		i += 1
 
 	num_imgs = len(rs_imgs)
@@ -56,11 +62,22 @@ def load_data(rs=rs_dir, gs=gs_dir):
 			seq.append(rs_imgs[k])
 		rs_data.append(seq)
 
+	num_imgs = len(test_rs)
+	test_rs_ = []
+	for i in range(num_imgs):
+		seq = []
+		for j in range(-int(sequence_len/2),int(sequence_len/2)+1):
+			k = min(num_imgs-1,max(0,i+j))
+			seq.append(test_rs[k])
+		test_rs_.append(seq)
+
 	rs_data = np.array(rs_data).transpose((0,2,3,1))
+	test_rs_ = np.array(test_rs_).transpose((0,2,3,1))
 	rs_features = model.predict(rs_data)
+	test_features = model.predict(test_rs_)
 	del model
 
-	return rs_features, np.array(gs_imgs)
+	return rs_features, np.array(gs_imgs), test_features, np.array(test_rs)
 
 input_seq = Input(shape=(7, 7, 2048))  # adapt this if using `channels_first` image data format
 
@@ -80,23 +97,25 @@ else:
 	autoencoder = Model(input_seq, decoded)
 	autoencoder.compile(optimizer='adam', loss='binary_crossentropy') # adadelta
 
-x_train, y_train = load_data()
+x_train, y_train, x_test_f, x_test = load_data()
 
+'''
 autoencoder.fit(x_train, y_train,\
                 epochs=100,\
                 batch_size=batch_size,\
                 shuffle=True,\
                 validation_data=(x_train, y_train),\
                 callbacks=[TensorBoard(log_dir='/tmp/autoencoder')])
+'''
 
-decoded_imgs = autoencoder.predict(x_train[:12])
+decoded_imgs = autoencoder.predict(x_test_f[:12])
 
 n = 12
 plt.figure(figsize=(20, 4))
 for i in range(n):
     # display original
     ax = plt.subplot(2, n, i+1)
-    plt.imshow(y_train[i].reshape(440, 440))
+    plt.imshow(x_test[i].reshape(224, 224)) # y_train
     plt.gray()
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
