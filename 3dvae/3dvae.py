@@ -30,24 +30,23 @@ def get_batch(data):
     inds = np.random.choice(range(data.shape[0]), batch_size, False)
     return np.array([data[i] for i in inds])
 
-np.random.seed(237)
+#np.random.seed(237)
 frames = log_run()
 num_sample = len(frames)
 
-model = VariantionalAutoencoder([None,64,64,1], 1e-3, batch_size, latent_dim)
-for epoch in range(11):
+#model = VariantionalAutoencoder([None,64,64,1], 1e-3, batch_size, latent_dim)
+model = VanillaAutoencoder([None,64,64,1], 1e-3, batch_size, latent_dim)
+for epoch in range(100):
     for iter in range(num_sample // batch_size):
         # Obtina a batch
         batch = get_batch(frames)
         # Execute the forward and the backward pass and report computed losses
-        loss, recon_loss, latent_loss = model.run_single_step(batch,save=epoch%10==9)
-    if epoch % 2 == 0:
-        print('[Epoch {}] Loss: {}, Recon loss: {}, Latent loss: {}'.format(
-            epoch, loss, recon_loss, latent_loss))
+        loss = model.run_single_step(batch,save=epoch%10==9)
+    print('[Epoch {}] Loss: {}'.format(epoch, loss))
 print('Done!')
 
 x_reconstructed = model.reconstructor(get_batch(frames))
-n = np.sqrt(model.batch_size).astype(np.int32)
+n = np.sqrt(model.batch_size).astype(np.int32)//2
 I_reconstructed = np.empty((h*n, 2*w*n))
 for i in range(n):
     for j in range(n):
