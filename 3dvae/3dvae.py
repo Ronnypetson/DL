@@ -1,12 +1,14 @@
 import numpy as np
 import gym
 import cv2
+import matplotlib.pyplot as plt
 
 from vae import *
 
 img_shape = (64,64,1)
 batch_size = 64
 latent_dim = 16
+h, w, _ = img_shape
 
 def log_run(num_it=1000):
 	env = gym.make('Pong-v0')
@@ -24,6 +26,10 @@ def log_run(num_it=1000):
 	env.close()
 	return np.array(frames)
 
+def get_batch(data):
+    inds = np.random.choice(range(data.shape[0]), batch_size, False)
+    return np.array([data[i] for i in inds])
+
 np.random.seed(237)
 frames = log_run()
 num_sample = len(frames)
@@ -32,15 +38,28 @@ model = VariantionalAutoencoder([None,64,64,1], 1e-3, batch_size, latent_dim)
 for epoch in range(11):
     for iter in range(num_sample // batch_size):
         # Obtina a batch
-        inds = np.random.choice(range(frames.shape[0]), batch_size, False)
-        batch = np.array([frames[i] for i in inds])
+        batch = get_batch(frames)
         # Execute the forward and the backward pass and report computed losses
-        loss, recon_loss, latent_loss = model.run_single_step(batch)
+        loss, recon_loss, latent_loss = model.run_single_step(batch,save=epoch%10==9)
     if epoch % 2 == 0:
         print('[Epoch {}] Loss: {}, Recon loss: {}, Latent loss: {}'.format(
             epoch, loss, recon_loss, latent_loss))
-    if epoch % 10 == 9:
-        cv2.imshow('Image window',model.reconstructor([batch[0]])[0])
-        cv2.waitKey()
 print('Done!')
+
+x_reconstructed = model.reconstructor(get_batch(frames))
+n = np.sqrt(model.batch_size).astype(np.int32)
+I_reconstructed = np.empty((h*n, 2*w*n))
+for i in range(n):
+    for j in range(n):
+        x = np.concatenate(
+            (x_reconstructed[i*n+j].reshape(h, w),
+             batch[i*n+j].reshape(h, w)),
+            axis=1
+        )
+        I_reconstructed[i*h:(i+1)*h, j*2*w:(j+1)*2*w] = x
+
+fig = plt.figure()
+plt.imshow(I_reconstructed, cmap='gray')
+plt.savefig('I_reconstructed.png')
+plt.close(fig)
 

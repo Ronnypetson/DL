@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import tensorflow as tf
 
@@ -7,9 +8,14 @@ class VariantionalAutoencoder(object):
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.n_z = n_z
+        self.model_fname = './VAE_pong'
         self.build()
         self.sess = tf.InteractiveSession()
-        self.sess.run(tf.global_variables_initializer())
+        self.saver = tf.train.Saver()
+        if os.path.isfile(self.model_fname+'.meta'):
+            self.saver.restore(self.sess,self.model_fname)
+        else:
+            self.sess.run(tf.global_variables_initializer())
 
     # Build the netowrk and the loss functions
     def build(self):
@@ -56,11 +62,13 @@ class VariantionalAutoencoder(object):
         return
 
     # Execute the forward and the backward pass
-    def run_single_step(self, x):
+    def run_single_step(self, x, save=False):
         _, loss, recon_loss, latent_loss = self.sess.run(
             [self.train_op, self.total_loss, self.recon_loss, self.latent_loss],
             feed_dict={self.x: x}
         )
+        if save:
+            self.saver.save(self.sess, self.model_fname)
         return loss, recon_loss, latent_loss
     # x -> x_hat
     def reconstructor(self, x):
